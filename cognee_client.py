@@ -1,8 +1,9 @@
 import os
+import tempfile
+from datetime import datetime
+
 import requests
 from dotenv import load_dotenv
-import tempfile
-import os
 
 load_dotenv()
 
@@ -14,77 +15,8 @@ headers = {
     "Content-Type": "application/json"
 }
 
-def remember_incident(question, context, answer):
 
-    report = f"""
-Machine Problem
-================
-
-{question}
-
-Retrieved Knowledge
-===================
-
-{context}
-
-AI Troubleshooting Report
-=========================
-
-{answer}
-"""
-
-    with tempfile.NamedTemporaryFile(
-        mode="w",
-        suffix=".txt",
-        delete=False,
-        encoding="utf-8"
-    ) as f:
-
-        f.write(report)
-        temp_file = f.name
-
-    try:
-
-        files = {
-            "data": open(temp_file, "rb")
-        }
-
-        data = {
-            "datasetName": "default_dataset"
-        }
-
-        response = requests.post(
-            f"{BASE_URL}/api/v1/add",
-            headers={
-                "X-Api-Key": API_KEY
-            },
-            files=files,
-            data=data
-        )
-
-        response.raise_for_status()
-
-        files["data"].close()
-
-        cognify = requests.post(
-            f"{BASE_URL}/api/v1/cognify",
-            headers=headers,
-            json={
-                "datasets": ["default_dataset"]
-            }
-        )
-
-        cognify.raise_for_status()
-
-        return True
-
-    finally:
-
-        if os.path.exists(temp_file):
-            os.remove(temp_file)
-            
 def search_memory(question):
-
     payload = {
         "query": question
     }
@@ -92,16 +24,118 @@ def search_memory(question):
     response = requests.post(
         f"{BASE_URL}/api/v1/search",
         headers=headers,
-        json=payload
+        json=payload,
+        timeout=60
     )
 
     response.raise_for_status()
 
     data = response.json()
 
-    if len(data) == 0:
+    if not data:
         return ""
 
     results = data[0]["search_result"]
 
     return "\n\n".join(results)
+
+
+def remember_incident(question, context, answer):
+
+    report = f"""
+===============================
+Industrial Maintenance Incident
+===============================
+
+Timestamp:
+{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+
+--------------------------------
+
+Machine Problem
+
+{question}
+
+--------------------------------
+
+Retrieved Maintenance Knowledge
+
+{context}
+
+--------------------------------
+
+AI Root Cause Analysis
+
+{answer}
+
+--------------------------------
+
+Status
+
+Validated by Engineer
+
+Source
+
+Cognee Factory Brain
+"""
+
+    temp_file = None
+
+    try:
+
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            suffix=".txt",
+            delete=False,
+            encoding="utf-8"
+        ) as f:
+
+            f.write(report)
+            temp_file = f.name
+
+        with open(temp_file, "rb") as fp:
+
+            files = {
+                "data": (
+                    "incident_report.txt",
+                    fp,
+                    "text/plain"
+                )
+            }
+
+            data = {
+                "datasetName": "default_dataset"
+            }
+
+            response = requests.post(
+                f"{BASE_URL}/api/v1/add",
+                headers={
+                    "X-Api-Key": API_KEY
+                },
+                files=files,
+                data=data,
+                timeout=60
+            )
+
+        print("=" * 50)
+        print("COGNEE ADD RESPONSE")
+        print("=" * 50)
+        print(response.status_code)
+        print(response.text)
+        print("=" * 50)
+
+        response.raise_for_status()
+
+        return response.status_code, response.text
+
+    except Exception as e:
+
+        print("Remember Incident Error")
+        print(e)
+
+        raise
+
+    finally:
+
+        if temp_file and os.path.exists(temp_file):
+            os.remove(temp_file)
