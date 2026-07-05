@@ -4,11 +4,12 @@ from datetime import datetime
 
 import requests
 from dotenv import load_dotenv
+import streamlit as st
 
 load_dotenv()
 
-BASE_URL = os.getenv("COGNEE_BASE_URL")
-API_KEY = os.getenv("COGNEE_API_KEY")
+BASE_URL = os.getenv("COGNEE_BASE_URL") or st.secrets["COGNEE_BASE_URL"]
+API_KEY = os.getenv("COGNEE_API_KEY") or st.secrets["COGNEE_API_KEY"]
 
 headers = {
     "X-Api-Key": API_KEY,
